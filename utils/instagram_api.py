@@ -15,7 +15,7 @@ class InstagramAPI:
         self.api_url = "https://www.instagram.com/api/v1"
         self.session = requests.Session()
         
-        # Essential headers that Instagram requires
+        # PythonAnywhere compatible headers
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': '*/*',
@@ -33,10 +33,11 @@ class InstagramAPI:
         self._initialize_session()
     
     def _initialize_session(self):
-        """Initialize session by visiting Instagram and getting necessary cookies"""
+        """Initialize session with PythonAnywhere compatibility"""
         try:
             print("🔄 Initializing Instagram session...")
-            response = self.session.get(self.base_url, timeout=10)
+            # Use a longer timeout for PythonAnywhere
+            response = self.session.get(self.base_url, timeout=30)
             
             if response.status_code == 200:
                 print("✅ Session initialized successfully")
@@ -47,16 +48,30 @@ class InstagramAPI:
                     self.session.headers['X-CSRFToken'] = csrf_token
                     print(f"🔑 CSRF Token: {csrf_token}")
                     
-                # Extract additional cookies
-                if 'ig_did' in self.session.cookies:
-                    print(f"🔑 IG Device ID: {self.session.cookies.get('ig_did')}")
-                    
             else:
                 print(f"❌ Failed to initialize session: {response.status_code}")
                 
         except Exception as e:
             print(f"❌ Session initialization error: {e}")
+            # Continue anyway - some features might still work
     
+    def _make_request(self, url, method='GET', **kwargs):
+        """Safe request method for PythonAnywhere"""
+        try:
+            # Add longer timeout for PythonAnywhere
+            kwargs['timeout'] = kwargs.get('timeout', 30)
+            response = self.session.request(method, url, **kwargs)
+            return response
+        except requests.exceptions.Timeout:
+            print(f"⏰ Request timeout: {url}")
+            return None
+        except requests.exceptions.ConnectionError:
+            print(f"🔌 Connection error: {url}")
+            return None
+        except Exception as e:
+            print(f"❌ Request error {url}: {e}")
+            return None
+
     def _get_common_headers(self):
         """Get common headers required for Instagram API requests"""
         return {
@@ -66,7 +81,7 @@ class InstagramAPI:
             'X-CSRFToken': self.session.cookies.get('csrftoken', ''),
             'Referer': f'{self.base_url}/',
         }
-    
+
     def search_profiles(self, query):
         """Search for Instagram profiles with multiple fallback methods"""
         try:
@@ -91,7 +106,7 @@ class InstagramAPI:
             print(f"❌ Search error: {e}")
         
         return []
-    
+
     def _search_official_api(self, query):
         """Search using official Instagram API"""
         try:
@@ -105,7 +120,11 @@ class InstagramAPI:
             headers = {**self._get_common_headers()}
             
             print(f"🌐 Trying official search API: {url}")
-            response = self.session.get(url, params=params, headers=headers, timeout=15)
+            response = self._make_request(url, params=params, headers=headers, timeout=15)
+            
+            if not response:
+                return []
+                
             print(f"📊 Official search response status: {response.status_code}")
             
             if response.status_code == 200:
@@ -136,7 +155,7 @@ class InstagramAPI:
             print(f"❌ Official search error: {e}")
         
         return []
-    
+
     def _search_web_api(self, query):
         """Search using web API"""
         try:
@@ -152,7 +171,11 @@ class InstagramAPI:
             }
             
             print(f"🌐 Trying web search API: {url}")
-            response = self.session.get(url, params=params, headers=headers, timeout=15)
+            response = self._make_request(url, params=params, headers=headers, timeout=15)
+            
+            if not response:
+                return []
+                
             print(f"📊 Web search response status: {response.status_code}")
             
             if response.status_code == 200:
@@ -182,7 +205,7 @@ class InstagramAPI:
             print(f"❌ Web search error: {e}")
         
         return []
-    
+
     def _search_basic(self, query):
         """Basic search fallback - try to find profiles by testing common patterns"""
         try:
@@ -204,7 +227,7 @@ class InstagramAPI:
             print(f"❌ Basic search error: {e}")
         
         return []
-    
+
     def get_profile_data(self, username, force_public=False):
         """Get profile data with enhanced private account support"""
         print(f"🔍 Fetching profile data for: {username}")
@@ -230,6 +253,54 @@ class InstagramAPI:
         print(f"❌ All methods failed for username: {username}")
         return None
 
+    def _get_profile_public_data(self, username):
+        """Public data endpoint with better error handling"""
+        try:
+            url = f"{self.base_url}/api/v1/users/web_profile_info/"
+            params = {'username': username}
+            headers = self._get_common_headers()
+            
+            print(f"🌐 Trying public data endpoint: {url}")
+            response = self._make_request(url, params=params, headers=headers)
+            
+            if not response:
+                return None
+                
+            print(f"📊 Public data response status: {response.status_code}")
+            
+            if response.status_code == 200:
+                data = response.json()
+                user_data = data.get('data', {}).get('user', {})
+                
+                if user_data and user_data.get('username'):
+                    profile = {
+                        'username': user_data.get('username'),
+                        'full_name': user_data.get('full_name', ''),
+                        'bio': user_data.get('biography', ''),
+                        'followers': user_data.get('edge_followed_by', {}).get('count', 0),
+                        'following': user_data.get('edge_follow', {}).get('count', 0),
+                        'posts_count': user_data.get('edge_owner_to_timeline_media', {}).get('count', 0),
+                        'profile_pic_url': user_data.get('profile_pic_url_hd') or user_data.get('profile_pic_url', ''),
+                        'is_private': user_data.get('is_private', False),
+                        'is_verified': user_data.get('is_verified', False),
+                        'external_url': user_data.get('external_url', ''),
+                        'user_id': user_data.get('id', ''),
+                        'is_limited_data': False,
+                        'has_preview_content': False,
+                        'limited_posts': []
+                    }
+                    print(f"🎯 Public data SUCCESS for: {profile['username']}")
+                    return profile
+            elif response.status_code == 404:
+                print(f"❌ Profile not found: {username}")
+            else:
+                print(f"⚠️ Public data returned: {response.status_code}")
+                
+        except Exception as e:
+            print(f"❌ Public data error: {e}")
+        
+        return None
+
     def get_enhanced_private_profile(self, username):
         """Enhanced method for private profile data extraction"""
         try:
@@ -245,8 +316,11 @@ class InstagramAPI:
             }
             
             print(f"🔍 Enhanced private profile fetch: {url}")
-            response = self.session.get(url, headers=headers, timeout=15)
+            response = self._make_request(url, headers=headers, timeout=15)
             
+            if not response:
+                return None
+                
             if response.status_code == 404:
                 print(f"❌ Profile not found: {username}")
                 return None
@@ -466,335 +540,7 @@ class InstagramAPI:
             print(f"❌ Enhanced preview extraction error: {e}")
         
         return preview_posts
-    
-    def _get_profile_enhanced_html(self, username):
-        """Enhanced HTML parsing that works for private profiles"""
-        try:
-            url = f"{self.base_url}/{username}/"
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            }
-            
-            print(f"🌐 Trying enhanced HTML parsing: {url}")
-            response = self.session.get(url, headers=headers, timeout=15)
-            print(f"📊 Enhanced HTML response status: {response.status_code}")
-            
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.text, 'html.parser')
-                
-                # Check if profile is private
-                is_private = any(phrase in response.text for phrase in [
-                    "This Account is Private", 
-                    "This account is private",
-                    "is_private\":true"
-                ])
-                
-                # Extract basic info that's always available
-                title = soup.find('title')
-                if title and title.text != 'Instagram':
-                    title_text = title.text
-                    # Extract username from title (usually "Username (@username) • Instagram photos and videos")
-                    username_match = re.search(r'@([\w\.]+)', title_text)
-                    profile_username = username_match.group(1) if username_match else username
-                    
-                    # Try to extract profile picture
-                    profile_pic_url = self._extract_profile_pic(soup, username)
-                    
-                    # Try to extract basic info from meta tags
-                    full_name = self._extract_full_name(soup)
-                    bio = self._extract_bio(soup)
-                    
-                    # For private accounts, try to get limited post data
-                    limited_posts = []
-                    if is_private:
-                        limited_posts = self._get_private_profile_preview(soup, username)
-                    
-                    profile = {
-                        'username': profile_username,
-                        'full_name': full_name,
-                        'bio': bio,
-                        'followers': 0,  # Not available for private profiles
-                        'following': 0,  # Not available for private profiles
-                        'posts_count': len(limited_posts) if is_private else 0,
-                        'profile_pic_url': profile_pic_url,
-                        'is_private': is_private,
-                        'is_verified': self._check_verified(soup),
-                        'external_url': '',
-                        'user_id': self._extract_user_id(soup),
-                        'is_limited_data': True,  # Flag for limited data
-                        'limited_posts': limited_posts,  # Preview posts for private accounts
-                        'has_preview_content': len(limited_posts) > 0
-                    }
-                    
-                    print(f"🎯 Enhanced HTML success for: {profile_username} (Private: {is_private}, Preview Posts: {len(limited_posts)})")
-                    return profile
-                    
-        except Exception as e:
-            print(f"❌ Enhanced HTML parsing error: {e}")
-        
-        return None
-    
-    def _get_private_profile_preview(self, soup, username):
-        """Extract preview content from private profiles"""
-        try:
-            preview_posts = []
-            
-            # Look for preview images in the HTML
-            img_tags = soup.find_all('img', {'src': True})
-            for img in img_tags:
-                src = img.get('src', '')
-                if any(pattern in src for pattern in ['/vp/', 'instagram', 'scontent', 'cdninstagram']):
-                    # This might be a post preview
-                    post_data = {
-                        'id': f"preview_{len(preview_posts)}",
-                        'type': 'image',
-                        'preview_url': src,
-                        'display_url': src,
-                        'thumbnail_url': src,
-                        'is_video': False,
-                        'is_preview': True,
-                        'timestamp': datetime.now(),
-                        'caption': 'Preview content from private account',
-                        'likes': 0,
-                        'comments': 0,
-                        'shortcode': f"preview_{len(preview_posts)}"
-                    }
-                    preview_posts.append(post_data)
-                    
-                    # Limit to 9 preview posts
-                    if len(preview_posts) >= 9:
-                        break
-            
-            # Also check for video previews
-            video_tags = soup.find_all('video', {'src': True})
-            for video in video_tags:
-                src = video.get('src', '')
-                if src and src.startswith('http'):
-                    post_data = {
-                        'id': f"video_preview_{len(preview_posts)}",
-                        'type': 'video',
-                        'preview_url': src,
-                        'video_url': src,
-                        'thumbnail_url': self._generate_default_avatar(username),
-                        'is_video': True,
-                        'is_preview': True,
-                        'timestamp': datetime.now(),
-                        'caption': 'Video preview from private account',
-                        'likes': 0,
-                        'comments': 0,
-                        'shortcode': f"video_preview_{len(preview_posts)}"
-                    }
-                    preview_posts.append(post_data)
-                    
-                    if len(preview_posts) >= 9:
-                        break
-            
-            return preview_posts
-            
-        except Exception as e:
-            print(f"❌ Private profile preview error: {e}")
-            return []
-    
-    def _extract_profile_pic(self, soup, username):
-        """Extract profile picture URL from various sources"""
-        try:
-            # Method 1: Look for meta tags
-            meta_image = soup.find('meta', property='og:image')
-            if meta_image and meta_image.get('content'):
-                return meta_image['content']
-            
-            # Method 2: Look for link tags
-            link_image = soup.find('link', rel='image_src')
-            if link_image and link_image.get('href'):
-                return link_image['href']
-            
-            # Method 3: Look for img tags with profile in class/alt
-            img_tags = soup.find_all('img')
-            for img in img_tags:
-                src = img.get('src', '')
-                alt = img.get('alt', '').lower()
-                classes = img.get('class', [])
-                class_str = ' '.join(classes).lower()
-                
-                if (username.lower() in alt or 
-                    'profile' in class_str or 
-                    'avatar' in class_str or
-                    '/vp/' in src):  # Instagram profile picture pattern
-                    if src and src.startswith('http'):
-                        return src
-            
-            # Method 4: Generate default avatar based on username
-            return self._generate_default_avatar(username)
-            
-        except Exception as e:
-            print(f"❌ Profile picture extraction error: {e}")
-            return self._generate_default_avatar(username)
-    
-    def _generate_default_avatar(self, username):
-        """Generate a default avatar when profile picture is not available"""
-        # Use DiceBear API for nice default avatars
-        styles = ['identicon', 'avataaars', 'bottts', 'micah']
-        style = random.choice(styles)
-        return f"https://api.dicebear.com/7.x/{style}/svg?seed={username}"
-    
-    def _extract_full_name(self, soup):
-        """Extract full name from HTML"""
-        try:
-            # Look for h1 or h2 tags that might contain the name
-            headers = soup.find_all(['h1', 'h2'])
-            for header in headers:
-                text = header.get_text().strip()
-                if text and not text.startswith('@') and len(text) > 1:
-                    return text
-            
-            # Look for meta description
-            meta_desc = soup.find('meta', property='og:description')
-            if meta_desc and meta_desc.get('content'):
-                desc = meta_desc['content']
-                # Extract name from description like "Name's Instagram profile"
-                name_match = re.search(r"^([^']+)'s Instagram", desc)
-                if name_match:
-                    return name_match.group(1).strip()
-                    
-            # Look for script data
-            script_tags = soup.find_all('script', type='text/javascript')
-            for script in script_tags:
-                if script.string and 'full_name' in script.string:
-                    try:
-                        # Try to extract from JSON data
-                        if 'window._sharedData' in script.string:
-                            json_text = script.string.split('window._sharedData = ')[1].split(';</script>')[0]
-                            data = json.loads(json_text)
-                            user_data = data.get('entry_data', {}).get('ProfilePage', [{}])[0].get('graphql', {}).get('user')
-                            if user_data and user_data.get('full_name'):
-                                return user_data.get('full_name')
-                    except:
-                        continue
-                    
-        except Exception as e:
-            print(f"❌ Full name extraction error: {e}")
-        
-        return ""
-    
-    def _extract_bio(self, soup):
-        """Extract bio from HTML"""
-        try:
-            # Look for meta description
-            meta_desc = soup.find('meta', property='og:description')
-            if meta_desc and meta_desc.get('content'):
-                desc = meta_desc['content']
-                return desc
-                
-            # Look for script data
-            script_tags = soup.find_all('script', type='text/javascript')
-            for script in script_tags:
-                if script.string and 'biography' in script.string:
-                    try:
-                        if 'window._sharedData' in script.string:
-                            json_text = script.string.split('window._sharedData = ')[1].split(';</script>')[0]
-                            data = json.loads(json_text)
-                            user_data = data.get('entry_data', {}).get('ProfilePage', [{}])[0].get('graphql', {}).get('user')
-                            if user_data and user_data.get('biography'):
-                                return user_data.get('biography')
-                    except:
-                        continue
-                
-        except Exception as e:
-            print(f"❌ Bio extraction error: {e}")
-        
-        return ""
-    
-    def _extract_user_id(self, soup):
-        """Extract user ID from HTML"""
-        try:
-            script_tags = soup.find_all('script', type='text/javascript')
-            for script in script_tags:
-                if script.string and 'window._sharedData' in script.string:
-                    try:
-                        json_text = script.string.split('window._sharedData = ')[1].split(';</script>')[0]
-                        data = json.loads(json_text)
-                        user_data = data.get('entry_data', {}).get('ProfilePage', [{}])[0].get('graphql', {}).get('user')
-                        if user_data and user_data.get('id'):
-                            return user_data.get('id')
-                    except:
-                        continue
-        except Exception as e:
-            print(f"❌ User ID extraction error: {e}")
-        
-        return ""
-    
-    def _check_verified(self, soup):
-        """Check if profile is verified"""
-        try:
-            # Look for verified badge in HTML
-            page_text = str(soup)
-            if 'verified' in page_text.lower():
-                return True
-                
-            # Look for specific verified elements
-            verified_elements = soup.find_all(string=re.compile('Verified', re.I))
-            if verified_elements:
-                return True
-                
-            # Check in script data
-            script_tags = soup.find_all('script', type='text/javascript')
-            for script in script_tags:
-                if script.string and 'is_verified' in script.string:
-                    try:
-                        if 'window._sharedData' in script.string:
-                            json_text = script.string.split('window._sharedData = ')[1].split(';</script>')[0]
-                            data = json.loads(json_text)
-                            user_data = data.get('entry_data', {}).get('ProfilePage', [{}])[0].get('graphql', {}).get('user')
-                            if user_data and user_data.get('is_verified'):
-                                return user_data.get('is_verified')
-                    except:
-                        continue
-                
-        except Exception as e:
-            print(f"❌ Verified check error: {e}")
-        
-        return False
-    
-    def _get_profile_public_data(self, username):
-        """Method 1: Public data endpoint with proper headers"""
-        try:
-            url = f"{self.base_url}/api/v1/users/web_profile_info/"
-            params = {'username': username}
-            headers = {**self._get_common_headers()}
-            
-            print(f"🌐 Trying public data endpoint: {url}")
-            response = self.session.get(url, params=params, headers=headers, timeout=15)
-            print(f"📊 Public data response status: {response.status_code}")
-            
-            if response.status_code == 200:
-                data = response.json()
-                user_data = data.get('data', {}).get('user', {})
-                
-                if user_data and user_data.get('username'):
-                    profile = {
-                        'username': user_data.get('username'),
-                        'full_name': user_data.get('full_name', ''),
-                        'bio': user_data.get('biography', ''),
-                        'followers': user_data.get('edge_followed_by', {}).get('count', 0),
-                        'following': user_data.get('edge_follow', {}).get('count', 0),
-                        'posts_count': user_data.get('edge_owner_to_timeline_media', {}).get('count', 0),
-                        'profile_pic_url': user_data.get('profile_pic_url_hd') or user_data.get('profile_pic_url', ''),
-                        'is_private': user_data.get('is_private', False),
-                        'is_verified': user_data.get('is_verified', False),
-                        'external_url': user_data.get('external_url', ''),
-                        'user_id': user_data.get('id', ''),
-                        'is_limited_data': False,
-                        'has_preview_content': False,
-                        'limited_posts': []
-                    }
-                    print(f"🎯 Public data SUCCESS for: {profile['username']}")
-                    return profile
-                
-        except Exception as e:
-            print(f"❌ Public data error: {e}")
-        
-        return None
-    
+
     def _get_profile_graphql(self, username):
         """Method 3: GraphQL endpoint"""
         try:
@@ -804,55 +550,58 @@ class InstagramAPI:
             }
             
             print(f"🌐 Trying GraphQL endpoint: {url}")
-            response = self.session.get(url, headers=headers, timeout=15)
+            response = self._make_request(url, headers=headers, timeout=15)
+            
+            if not response or response.status_code != 200:
+                return None
+                
             print(f"📊 GraphQL response status: {response.status_code}")
             
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.text, 'html.parser')
-                script_tags = soup.find_all('script', type='text/javascript')
-                
-                for script in script_tags:
-                    if script.string and 'window._sharedData' in script.string:
-                        try:
-                            json_text = script.string.split('window._sharedData = ')[1].split(';</script>')[0]
-                            data = json.loads(json_text)
-                            
-                            user_data = data.get('entry_data', {}).get('ProfilePage', [{}])[0].get('graphql', {}).get('user')
-                            
-                            if user_data and user_data.get('username'):
-                                profile = {
-                                    'username': user_data.get('username'),
-                                    'full_name': user_data.get('full_name', ''),
-                                    'bio': user_data.get('biography', ''),
-                                    'followers': user_data.get('edge_followed_by', {}).get('count', 0),
-                                    'following': user_data.get('edge_follow', {}).get('count', 0),
-                                    'posts_count': user_data.get('edge_owner_to_timeline_media', {}).get('count', 0),
-                                    'profile_pic_url': user_data.get('profile_pic_url_hd') or user_data.get('profile_pic_url', ''),
-                                    'is_private': user_data.get('is_private', False),
-                                    'is_verified': user_data.get('is_verified', False),
-                                    'external_url': user_data.get('external_url', ''),
-                                    'user_id': user_data.get('id', ''),
-                                    'is_limited_data': False,
-                                    'has_preview_content': False,
-                                    'limited_posts': []
-                                }
-                                print(f"🎯 GraphQL SUCCESS for: {profile['username']}")
-                                return profile
-                        except Exception as e:
-                            print(f"❌ GraphQL JSON parsing error: {e}")
-                            continue
+            soup = BeautifulSoup(response.text, 'html.parser')
+            script_tags = soup.find_all('script', type='text/javascript')
+            
+            for script in script_tags:
+                if script.string and 'window._sharedData' in script.string:
+                    try:
+                        json_text = script.string.split('window._sharedData = ')[1].split(';</script>')[0]
+                        data = json.loads(json_text)
+                        
+                        user_data = data.get('entry_data', {}).get('ProfilePage', [{}])[0].get('graphql', {}).get('user')
+                        
+                        if user_data and user_data.get('username'):
+                            profile = {
+                                'username': user_data.get('username'),
+                                'full_name': user_data.get('full_name', ''),
+                                'bio': user_data.get('biography', ''),
+                                'followers': user_data.get('edge_followed_by', {}).get('count', 0),
+                                'following': user_data.get('edge_follow', {}).get('count', 0),
+                                'posts_count': user_data.get('edge_owner_to_timeline_media', {}).get('count', 0),
+                                'profile_pic_url': user_data.get('profile_pic_url_hd') or user_data.get('profile_pic_url', ''),
+                                'is_private': user_data.get('is_private', False),
+                                'is_verified': user_data.get('is_verified', False),
+                                'external_url': user_data.get('external_url', ''),
+                                'user_id': user_data.get('id', ''),
+                                'is_limited_data': False,
+                                'has_preview_content': False,
+                                'limited_posts': []
+                            }
+                            print(f"🎯 GraphQL SUCCESS for: {profile['username']}")
+                            return profile
+                    except Exception as e:
+                        print(f"❌ GraphQL JSON parsing error: {e}")
+                        continue
              
         except Exception as e:
             print(f"❌ GraphQL error: {e}")
         
         return None
-    
+
     def get_limited_profile_data(self, username):
         """Get enhanced limited profile data for private accounts"""
         return self.get_enhanced_private_profile(username)
 
     def get_user_posts(self, username, limit=12):
-        """Get user posts with support for private account previews"""
+        """Get user posts with PythonAnywhere optimizations"""
         try:
             print(f"📷 Fetching posts for: {username}")
             
@@ -864,7 +613,6 @@ class InstagramAPI:
             
             if profile_data.get('is_private'):
                 print(f"🔒 Private account detected, returning preview posts: {username}")
-                # Return preview posts for private accounts
                 return profile_data.get('limited_posts', [])
             
             # Try public data method for posts
@@ -873,124 +621,127 @@ class InstagramAPI:
                 print(f"✅ Successfully fetched {len(posts)} posts for {username}")
                 return posts
             
-            # Fallback to GraphQL
-            posts = self._get_posts_graphql(username, limit)
+            # Fallback to basic HTML parsing
+            posts = self._get_posts_basic_html(username, limit)
             if posts:
-                print(f"✅ Successfully fetched {len(posts)} posts for {username}")
+                print(f"✅ Successfully fetched {len(posts)} posts via HTML for {username}")
                 return posts
                 
         except Exception as e:
             print(f"❌ Error fetching posts: {e}")
         
         return []
-    
+
     def _get_posts_public_data(self, username, limit):
         """Get posts via public data endpoint"""
         try:
             url = f"{self.base_url}/api/v1/users/web_profile_info/"
             params = {'username': username}
-            headers = {**self._get_common_headers()}
+            headers = self._get_common_headers()
             
-            response = self.session.get(url, params=params, headers=headers, timeout=15)
+            response = self._make_request(url, params=params, headers=headers, timeout=15)
             
-            if response.status_code == 200:
-                data = response.json()
-                user_data = data.get('data', {}).get('user', {})
-                posts_edges = user_data.get('edge_owner_to_timeline_media', {}).get('edges', [])
+            if not response or response.status_code != 200:
+                return []
                 
-                formatted_posts = []
-                for post in posts_edges[:limit]:
-                    node = post.get('node', {})
-                    
-                    # Get caption
-                    caption_edges = node.get('edge_media_to_caption', {}).get('edges', [])
-                    caption = caption_edges[0].get('node', {}).get('text', '') if caption_edges else ''
-                    
-                    post_data = {
-                        'id': node.get('id', ''),
-                        'shortcode': node.get('shortcode', ''),
-                        'thumbnail_url': node.get('thumbnail_src', ''),
-                        'display_url': node.get('display_url', ''),
-                        'is_video': node.get('is_video', False),
-                        'video_url': node.get('video_url', ''),
-                        'caption': caption,
-                        'likes': node.get('edge_media_preview_like', {}).get('count', 0),
-                        'comments': node.get('edge_media_to_comment', {}).get('count', 0),
-                        'timestamp': datetime.fromtimestamp(node.get('taken_at_timestamp')) if node.get('taken_at_timestamp') else None,
-                        'dimensions': node.get('dimensions', {}),
-                        'is_preview': False
-                    }
-                    formatted_posts.append(post_data)
+            data = response.json()
+            user_data = data.get('data', {}).get('user', {})
+            posts_edges = user_data.get('edge_owner_to_timeline_media', {}).get('edges', [])
+            
+            formatted_posts = []
+            for post in posts_edges[:limit]:
+                node = post.get('node', {})
                 
-                print(f"📊 Fetched {len(formatted_posts)} posts via public data")
-                return formatted_posts
+                # Get caption
+                caption_edges = node.get('edge_media_to_caption', {}).get('edges', [])
+                caption = caption_edges[0].get('node', {}).get('text', '') if caption_edges else ''
                 
+                post_data = {
+                    'id': node.get('id', ''),
+                    'shortcode': node.get('shortcode', ''),
+                    'thumbnail_url': node.get('thumbnail_src', ''),
+                    'display_url': node.get('display_url', ''),
+                    'is_video': node.get('is_video', False),
+                    'video_url': node.get('video_url', ''),
+                    'caption': caption,
+                    'likes': node.get('edge_media_preview_like', {}).get('count', 0),
+                    'comments': node.get('edge_media_to_comment', {}).get('count', 0),
+                    'timestamp': datetime.fromtimestamp(node.get('taken_at_timestamp')) if node.get('taken_at_timestamp') else None,
+                    'dimensions': node.get('dimensions', {}),
+                    'is_preview': False
+                }
+                formatted_posts.append(post_data)
+            
+            print(f"📊 Fetched {len(formatted_posts)} posts via public data")
+            return formatted_posts
+            
         except Exception as e:
             print(f"❌ Error in public data posts method: {e}")
         
         return []
-    
-    def _get_posts_graphql(self, username, limit):
-        """Get posts via GraphQL endpoint"""
+
+    def _get_posts_basic_html(self, username, limit):
+        """Basic HTML parsing fallback for posts"""
         try:
             url = f"{self.base_url}/{username}/"
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             }
             
-            response = self.session.get(url, headers=headers, timeout=15)
+            response = self._make_request(url, headers=headers)
+            if not response or response.status_code != 200:
+                return []
             
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.text, 'html.parser')
-                script_tags = soup.find_all('script', type='text/javascript')
-                
-                for script in script_tags:
-                    if script.string and 'window._sharedData' in script.string:
-                        try:
-                            json_text = script.string.split('window._sharedData = ')[1].split(';</script>')[0]
-                            data = json.loads(json_text)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            script_tags = soup.find_all('script', type='text/javascript')
+            
+            for script in script_tags:
+                if script.string and 'window._sharedData' in script.string:
+                    try:
+                        json_text = script.string.split('window._sharedData = ')[1].split(';</script>')[0]
+                        data = json.loads(json_text)
+                        
+                        user_data = data.get('entry_data', {}).get('ProfilePage', [{}])[0].get('graphql', {}).get('user')
+                        posts_edges = user_data.get('edge_owner_to_timeline_media', {}).get('edges', [])
+                        
+                        formatted_posts = []
+                        for post in posts_edges[:limit]:
+                            node = post.get('node', {})
                             
-                            user_data = data.get('entry_data', {}).get('ProfilePage', [{}])[0].get('graphql', {}).get('user')
-                            posts_edges = user_data.get('edge_owner_to_timeline_media', {}).get('edges', [])
+                            # Get caption
+                            caption_edges = node.get('edge_media_to_caption', {}).get('edges', [])
+                            caption = caption_edges[0].get('node', {}).get('text', '') if caption_edges else ''
                             
-                            formatted_posts = []
-                            for post in posts_edges[:limit]:
-                                node = post.get('node', {})
-                                
-                                # Get caption
-                                caption_edges = node.get('edge_media_to_caption', {}).get('edges', [])
-                                caption = caption_edges[0].get('node', {}).get('text', '') if caption_edges else ''
-                                
-                                post_data = {
-                                    'id': node.get('id', ''),
-                                    'shortcode': node.get('shortcode', ''),
-                                    'thumbnail_url': node.get('thumbnail_src', ''),
-                                    'display_url': node.get('display_url', ''),
-                                    'is_video': node.get('is_video', False),
-                                    'video_url': node.get('video_url', ''),
-                                    'caption': caption,
-                                    'likes': node.get('edge_media_preview_like', {}).get('count', 0),
-                                    'comments': node.get('edge_media_to_comment', {}).get('count', 0),
-                                    'timestamp': datetime.fromtimestamp(node.get('taken_at_timestamp')) if node.get('taken_at_timestamp') else None,
-                                    'dimensions': node.get('dimensions', {}),
-                                    'is_preview': False
-                                }
-                                formatted_posts.append(post_data)
-                            
-                            print(f"📊 Fetched {len(formatted_posts)} posts via GraphQL")
-                            return formatted_posts
-                            
-                        except Exception as e:
-                            print(f"❌ GraphQL posts parsing error: {e}")
-                            continue
-                
+                            post_data = {
+                                'id': node.get('id', ''),
+                                'shortcode': node.get('shortcode', ''),
+                                'thumbnail_url': node.get('thumbnail_src', ''),
+                                'display_url': node.get('display_url', ''),
+                                'is_video': node.get('is_video', False),
+                                'video_url': node.get('video_url', ''),
+                                'caption': caption,
+                                'likes': node.get('edge_media_preview_like', {}).get('count', 0),
+                                'comments': node.get('edge_media_to_comment', {}).get('count', 0),
+                                'timestamp': datetime.fromtimestamp(node.get('taken_at_timestamp')) if node.get('taken_at_timestamp') else None,
+                                'dimensions': node.get('dimensions', {}),
+                                'is_preview': False
+                            }
+                            formatted_posts.append(post_data)
+                        
+                        print(f"📊 Fetched {len(formatted_posts)} posts via HTML")
+                        return formatted_posts
+                        
+                    except Exception as e:
+                        print(f"❌ HTML posts parsing error: {e}")
+                        continue
+            
         except Exception as e:
-            print(f"❌ Error in GraphQL posts method: {e}")
+            print(f"❌ Error in HTML posts method: {e}")
         
         return []
-    
+
     def get_user_stories(self, username):
-        """Get user stories with preview support"""
+        """Get user stories - simplified for PythonAnywhere"""
         try:
             profile_data = self.get_profile_data(username)
             if not profile_data:
@@ -998,18 +749,17 @@ class InstagramAPI:
             
             if profile_data.get('is_private'):
                 print(f"🔒 Private account stories preview for: {username}")
-                # Return limited story preview for private accounts
                 return self._get_private_stories_preview(username)
             
-            # For public accounts, try to get actual stories
-            stories = self._get_public_stories(username)
-            return stories
+            # For PythonAnywhere, return empty or basic preview
+            # Actual story API might be blocked
+            return self._get_basic_stories_preview(username)
             
         except Exception as e:
             print(f"❌ Error fetching stories: {e}")
         
         return []
-    
+
     def _get_private_stories_preview(self, username):
         """Get limited story preview for private accounts"""
         try:
@@ -1030,30 +780,27 @@ class InstagramAPI:
         except Exception as e:
             print(f"❌ Private stories preview error: {e}")
             return []
-    
-    def _get_public_stories(self, username):
-        """Get stories for public accounts"""
+
+    def _get_basic_stories_preview(self, username):
+        """Basic stories preview that works on PythonAnywhere"""
         try:
-            # Note: Actual story fetching requires authentication
-            # This is a simplified implementation
-            url = f"{self.base_url}/stories/{username}/"
-            headers = {**self._get_common_headers()}
-            
-            response = self.session.get(url, headers=headers, timeout=10)
-            
-            if response.status_code == 200:
-                # Parse stories from response (simplified)
-                # In a real implementation, you would parse the actual story data
-                stories = []
-                return stories
-            else:
-                print(f"❌ Stories endpoint returned: {response.status_code}")
-                
+            # Return placeholder data since story API is often blocked
+            return [{
+                'id': f'story_preview_{username}',
+                'type': 'image',
+                'preview_url': self._generate_default_avatar(username),
+                'display_url': self._generate_default_avatar(username),
+                'is_video': False,
+                'is_preview': True,
+                'timestamp': datetime.now(),
+                'duration': 10,
+                'caption': 'Stories preview',
+                'message': 'Story functionality may be limited on this hosting platform.'
+            }]
         except Exception as e:
-            print(f"❌ Public stories error: {e}")
-        
-        return []
-    
+            print(f"❌ Basic stories preview error: {e}")
+            return []
+
     def get_media_preview(self, media_url, media_type='post'):
         """Get enhanced preview data for media"""
         try:
@@ -1124,6 +871,12 @@ class InstagramAPI:
         except Exception as e:
             print(f"❌ Profile insights error: {e}")
             return None
+
+    def _generate_default_avatar(self, username):
+        """Generate a default avatar when profile picture is not available"""
+        styles = ['identicon', 'avataaars', 'bottts', 'micah']
+        style = random.choice(styles)
+        return f"https://api.dicebear.com/7.x/{style}/svg?seed={username}"
 
 class MediaDownloader:
     def __init__(self):
