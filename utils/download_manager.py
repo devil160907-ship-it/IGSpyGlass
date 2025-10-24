@@ -1,13 +1,134 @@
 import os
 import uuid
+import sqlite3
+import json
 from datetime import datetime
-from models.models import DownloadManager
 from utils.instagram_api import MediaDownloader
 import config
 
+class SQLiteDownloadManager:
+    def __init__(self, db_path='downloads.db'):
+        self.db_path = db_path
+        self._init_db()
+    
+    def _init_db(self):
+        """Initialize SQLite database"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS downloads (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    type TEXT,
+                    username TEXT,
+                    media_id TEXT,
+                    file_path TEXT,
+                    file_size INTEGER,
+                    media_url TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            conn.commit()
+            conn.close()
+            print("✅ SQLite download database initialized")
+        except Exception as e:
+            print(f"❌ Database initialization error: {e}")
+    
+    def log_download(self, download_data):
+        """Log download to SQLite database"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                INSERT INTO downloads 
+                (type, username, media_id, file_path, file_size, media_url, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                download_data.get('type'),
+                download_data.get('username'),
+                download_data.get('post_id') or download_data.get('story_id') or download_data.get('username'),
+                download_data.get('file_path'),
+                download_data.get('file_size', 0),
+                download_data.get('media_url'),
+                datetime.now()
+            ))
+            
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            print(f"❌ Download logging error: {e}")
+            return False
+    
+    def get_download_stats(self):
+        """Get download statistics"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT 
+                    COUNT(*) as total_downloads,
+                    COUNT(DISTINCT username) as unique_users,
+                    SUM(file_size) as total_size
+                FROM downloads
+            ''')
+            
+            result = cursor.fetchone()
+            conn.close()
+            
+            if result:
+                return {
+                    'total_downloads': result[0] or 0,
+                    'unique_users': result[1] or 0,
+                    'total_size': result[2] or 0
+                }
+        except Exception as e:
+            print(f"❌ Download stats error: {e}")
+        
+        return {
+            'total_downloads': 0,
+            'unique_users': 0,
+            'total_size': 0
+        }
+    
+    def get_download_history(self, limit=50):
+        """Get download history"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT 
+                    type, username, media_id, file_path, file_size, media_url, created_at
+                FROM downloads 
+                ORDER BY created_at DESC 
+                LIMIT ?
+            ''', (limit,))
+            
+            downloads = []
+            for row in cursor.fetchall():
+                downloads.append({
+                    'type': row[0],
+                    'username': row[1],
+                    'media_id': row[2],
+                    'file_path': row[3],
+                    'file_size': row[4],
+                    'media_url': row[5],
+                    'created_at': row[6]
+                })
+            
+            conn.close()
+            return downloads
+        except Exception as e:
+            print(f"❌ Download history error: {e}")
+        
+        return []
+
 class DownloadService:
     def __init__(self):
-        self.download_manager = DownloadManager()
+        self.download_manager = SQLiteDownloadManager()
         self.media_downloader = MediaDownloader()
         self.download_folder = config.Config.DOWNLOAD_FOLDER
         
