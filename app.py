@@ -1,5 +1,4 @@
 from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for
-from models.models import ProfileManager, StoryManager
 from utils.instagram_api import InstagramAPI
 from utils.download_manager import DownloadService
 from utils.analytics import AnalyticsService
@@ -11,9 +10,7 @@ import traceback
 app = Flask(__name__)
 app.config.from_object(config.config['default'])
 
-# Initialize managers
-profile_manager = ProfileManager()
-story_manager = StoryManager()
+# Initialize managers - without MongoDB
 instagram_api = InstagramAPI()
 download_service = DownloadService()
 analytics_service = AnalyticsService()
@@ -126,7 +123,7 @@ def view_profile(username):
                                     username=username)
         else:
             # Public account - get full data
-            profile_manager.save_profile(profile_data)
+            # Removed: profile_manager.save_profile(profile_data)
             posts = instagram_api.get_user_posts(username)
             analytics = analytics_service.analyze_profile(profile_data, posts)
             
@@ -157,8 +154,6 @@ def view_limited_profile(username):
     except Exception as e:
         print(f"❌ Limited profile loading error: {str(e)}")
         return render_template('error.html', message=f"Error loading limited profile: {str(e)}")
-
-# ... (other routes remain similar)
 
 @app.route('/profile/<username>/stories')
 def view_stories(username):
@@ -330,7 +325,7 @@ def debug_profile(username):
         graphql_data = instagram_api._get_profile_graphql(username)
         
         print("3. Testing HTML parsing method...")
-        html_data = instagram_api._get_profile_html_parsing(username)
+        html_data = instagram_api.get_enhanced_private_profile(username)
         
         print("4. Testing main get_profile_data method...")
         main_data = instagram_api.get_profile_data(username)
@@ -387,8 +382,8 @@ def profile():
         return render_template('error.html', message="Please enter a username.")
 
     try:
-        instagram_api = InstagramAPI()
-        profile_data = instagram_api.get_profile_data(username)
+        instagram_api_local = InstagramAPI()
+        profile_data = instagram_api_local.get_profile_data(username)
 
         # ✅ Improved checks
         if not profile_data:
