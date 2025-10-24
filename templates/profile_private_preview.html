@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>@{{ profile.username }} - Private Account Preview</title>
+  </head>
+  <body>
+    <div class="private-profile">
+      <h1>🔒 Private Account: @{{ profile.username }}</h1>
+
+      <div class="profile-info">
+        <img
+          src="{{ profile.profile_pic_url }}"
+          alt="Profile picture"
+          width="150"
+        />
+        <h2>{{ profile.full_name }}</h2>
+        <p>{{ profile.bio }}</p>
+        <p class="private-notice">
+          This account is private. Limited preview available.
+        </p>
+      </div>
+
+      {% if profile.has_preview_content %}
+      <div class="preview-content">
+        <h3>Preview Content</h3>
+        <div class="preview-grid">
+          {% for post in profile.limited_posts %}
+          <div class="preview-item">
+            {% if post.is_video %}
+            <video controls width="200" poster="{{ post.thumbnail_url }}">
+              <source src="{{ post.video_url }}" type="video/mp4" />
+            </video>
+            {% else %}
+            <img src="{{ post.preview_url }}" alt="Preview" width="200" />
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </body>
+</html>

@@ -1,0 +1,61 @@
+{% extends "base.html" %} {% block title %}Error | IGSpyGlass{% endblock %} {%
+block content %}
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-md-8">
+      <div class="card border-danger shadow-sm">
+        <div class="card-header bg-danger text-white">
+          <h4 class="mb-0">
+            <i class="fas fa-exclamation-triangle"></i> Error
+          </h4>
+        </div>
+        <div class="card-body text-center py-5">
+          <div class="mb-4">
+            <i class="fas fa-bug fa-4x text-danger"></i>
+          </div>
+
+          <h3 class="text-danger mb-3">Something Went Wrong</h3>
+
+          <p class="lead text-muted mb-4">{{ message }}</p>
+
+          <div class="alert alert-warning text-start">
+            <h6 class="alert-heading">
+              <i class="fas fa-question-circle"></i> Common Solutions:
+            </h6>
+            <ul class="mb-0">
+              <li>Check if the Instagram username is correct</li>
+              <li>Ensure the account exists and is public</li>
+              <li>Verify your internet connection</li>
+              <li>Wait a few minutes and try again</li>
+              <li>Instagram might be blocking requests temporarily</li>
+            </ul>
+          </div>
+
+          <div class="mt-4">
+            <a href="{{ url_for('index') }}" class="btn btn-primary me-2">
+              <i class="fas fa-home"></i> Go Home
+            </a>
+            <button
+              onclick="window.history.back()"
+              class="btn btn-outline-secondary"
+            >
+              <i class="fas fa-arrow-left"></i> Go Back
+            </button>
+          </div>
+
+          {% if config.DEBUG %}
+          <div class="mt-4 text-start">
+            <details>
+              <summary class="text-muted">
+                Technical Details (Debug Mode)
+              </summary>
+              <pre class="mt-2 p-3 bg-light rounded small">{{ traceback }}</pre>
+            </details>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

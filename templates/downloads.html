@@ -1,0 +1,263 @@
+{% extends "base.html" %} {% block title %}Download History | IGSpyGlass{%
+endblock %} {% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2><i class="fas fa-download"></i> Download History</h2>
+  <div class="btn-group">
+    <button
+      class="btn btn-outline-danger btn-sm"
+      onclick="clearDownloadHistory()"
+    >
+      <i class="fas fa-trash"></i> Clear History
+    </button>
+    <button
+      class="btn btn-outline-success btn-sm"
+      onclick="exportDownloadHistory()"
+    >
+      <i class="fas fa-file-export"></i> Export CSV
+    </button>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-3 mb-4">
+    <div class="card bg-primary text-white">
+      <div class="card-body text-center">
+        <h3>{{ stats.total_downloads if stats else 0 }}</h3>
+        <p class="mb-0">Total Downloads</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 mb-4">
+    <div class="card bg-success text-white">
+      <div class="card-body text-center">
+        <h3>{{ stats.today_downloads if stats else 0 }}</h3>
+        <p class="mb-0">Today's Downloads</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 mb-4">
+    <div class="card bg-info text-white">
+      <div class="card-body text-center">
+        <h3>
+          {{ (downloads|selectattr('type', 'equalto', 'story')|list)|length if
+          downloads else 0 }}
+        </h3>
+        <p class="mb-0">Stories Downloaded</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 mb-4">
+    <div class="card bg-warning text-white">
+      <div class="card-body text-center">
+        <h3>
+          {{ (downloads|selectattr('type', 'equalto', 'post')|list)|length if
+          downloads else 0 }}
+        </h3>
+        <p class="mb-0">Posts Downloaded</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h5 class="mb-0"><i class="fas fa-history"></i> Recent Downloads</h5>
+  </div>
+  <div class="card-body">
+    {% if downloads and downloads|length > 0 %}
+    <div class="table-responsive">
+      <table class="table table-striped table-hover">
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Username</th>
+            <th>File Info</th>
+            <th>Downloaded</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for download in downloads %}
+          <tr>
+            <td>
+              <span
+                class="badge {% if download.type == 'story' %}bg-info {% elif download.type == 'post' %}bg-success {% elif download.type == 'profile_pic' %}bg-warning {% else %}bg-secondary{% endif %}"
+              >
+                <i
+                  class="fas {% if download.type == 'story' %}fa-history {% elif download.type == 'post' %}fa-image {% elif download.type == 'profile_pic' %}fa-user-circle {% else %}fa-file{% endif %}"
+                >
+                </i>
+                {{ download.type|title if download.type else 'Unknown' }}
+              </span>
+            </td>
+            <td>
+              <strong
+                >{{ download.username if download.username else 'N/A' }}</strong
+              >
+            </td>
+            <td>
+              <small>
+                {% if download.file_size %}
+                <div>
+                  Size: {{ (download.file_size / 1024 / 1024)|round(2) }} MB
+                </div>
+                {% endif %}
+                <div class="text-muted">
+                  {{ download.file_path.split('/')[-1] if download.file_path
+                  else 'N/A' }}
+                </div>
+              </small>
+            </td>
+            <td>
+              <small
+                >{{ download.downloaded_at.strftime('%Y-%m-%d %H:%M') if
+                download.downloaded_at else 'Unknown' }}</small
+              >
+            </td>
+            <td>
+              <div class="btn-group btn-group-sm">
+                <button
+                  class="btn btn-outline-primary"
+                  onclick="reDownload('{{ download.media_url if download.media_url else '' }}', '{{ download.type if download.type else '' }}', '{{ download.username if download.username else '' }}', '{{ download.story_id if download.story_id else download.post_id if download.post_id else '' }}')"
+                >
+                  <i class="fas fa-redo"></i>
+                </button>
+                {% if download.file_path %}
+                <button
+                  class="btn btn-outline-success"
+                  onclick="openFile('{{ download.file_path }}')"
+                >
+                  <i class="fas fa-folder-open"></i>
+                </button>
+                {% endif %}
+                <button
+                  class="btn btn-outline-danger"
+                  onclick="deleteDownloadRecord('{{ download._id if download._id else '' }}')"
+                >
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+      <i class="fas fa-download fa-4x text-muted mb-3"></i>
+      <h4>No Download History</h4>
+      <p class="text-muted">
+        Your download history will appear here once you start downloading
+        content.
+      </p>
+      <a href="{{ url_for('index') }}" class="btn btn-primary">
+        <i class="fas fa-search"></i> Start Searching
+      </a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Download Statistics Chart -->
+{% if downloads and downloads|length > 0 %}
+<div class="card mt-4">
+  <div class="card-header">
+    <h5 class="mb-0"><i class="fas fa-chart-bar"></i> Download Statistics</h5>
+  </div>
+  <div class="card-body">
+    <div class="row">
+      <div class="col-md-6">
+        <canvas id="downloadTypeChart" width="400" height="200"></canvas>
+      </div>
+      <div class="col-md-6">
+        <canvas id="downloadTimelineChart" width="400" height="200"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %} {% endblock %} {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  function clearDownloadHistory() {
+      if (confirm('Are you sure you want to clear all download history? This action cannot be undone.')) {
+          showAlert('Clear history functionality would be implemented here.', 'info');
+      }
+  }
+
+  function exportDownloadHistory() {
+      showAlert('Export functionality would be implemented here.', 'info');
+  }
+
+  function reDownload(mediaUrl, type, username, id) {
+      showAlert('Re-download functionality would be implemented here.', 'info');
+  }
+
+  function openFile(filePath) {
+      // This would open the file in the downloads folder
+      showAlert('File open functionality would be implemented here.', 'info');
+  }
+
+  function deleteDownloadRecord(id) {
+      if (confirm('Are you sure you want to delete this download record?')) {
+          showAlert('Delete functionality would be implemented here.', 'info');
+      }
+  }
+
+  {% if downloads and downloads|length > 0 %}
+  // Initialize charts
+  document.addEventListener('DOMContentLoaded', function() {
+      // Download Type Chart
+      const typeCtx = document.getElementById('downloadTypeChart').getContext('2d');
+      const typeChart = new Chart(typeCtx, {
+          type: 'doughnut',
+          data: {
+              labels: ['Stories', 'Posts', 'Profile Pictures'],
+              datasets: [{
+                  data: [
+                      {{ (downloads|selectattr('type', 'equalto', 'story')|list)|length }},
+                      {{ (downloads|selectattr('type', 'equalto', 'post')|list)|length }},
+                      {{ (downloads|selectattr('type', 'equalto', 'profile_pic')|list)|length }}
+                  ],
+                  backgroundColor: ['#0dcaf0', '#198754', '#ffc107']
+              }]
+          },
+          options: {
+              responsive: true,
+              plugins: {
+                  title: {
+                      display: true,
+                      text: 'Download Types'
+                  }
+              }
+          }
+      });
+
+      // Download Timeline Chart (last 7 days)
+      const timelineCtx = document.getElementById('downloadTimelineChart').getContext('2d');
+      const timelineChart = new Chart(timelineCtx, {
+          type: 'line',
+          data: {
+              labels: ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Today'],
+              datasets: [{
+                  label: 'Downloads per Day',
+                  data: [5, 8, 12, 6, 15, 9, {{ stats.today_downloads if stats else 0 }}],
+                  borderColor: '#0d6efd',
+                  backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                  fill: true
+              }]
+          },
+          options: {
+              responsive: true,
+              plugins: {
+                  title: {
+                      display: true,
+                      text: 'Download Activity (Last 7 Days)'
+                  }
+              }
+          }
+      });
+  });
+  {% endif %}
+</script>
+{% endblock %}

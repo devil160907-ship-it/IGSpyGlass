@@ -1,0 +1,125 @@
+{% extends "base.html" %} {% block title %}Limited Profile - {{ profile.username
+}} | IGSpyGlass{% endblock %} {% block content %}
+<div class="profile-header">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-md-2 text-center">
+        <img
+          src="{{ profile.profile_pic_url }}"
+          class="rounded-circle border border-3 border-warning"
+          width="120"
+          height="120"
+          alt="{{ profile.username }}"
+          style="object-fit: cover"
+          onerror="this.src='https://api.dicebear.com/7.x/identicon/svg?seed={{ profile.username }}'"
+        />
+      </div>
+      <div class="col-md-6">
+        <h2 class="text-warning">@{{ profile.username }}</h2>
+        {% if profile.full_name %}
+        <p class="mb-1 text-light">{{ profile.full_name }}</p>
+        {% endif %} {% if profile.bio %}
+        <p class="mb-1 text-light">{{ profile.bio }}</p>
+        {% endif %}
+
+        <div class="mt-3">
+          <span class="badge bg-warning me-2">
+            <i class="fas fa-exclamation-triangle"></i> Limited Data
+          </span>
+          {% if profile.is_verified %}
+          <span class="badge bg-success">
+            <i class="fas fa-check-circle"></i> Verified
+          </span>
+          {% endif %}
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="alert alert-warning">
+          <h6><i class="fas fa-info-circle"></i> Limited Profile Data</h6>
+          <p class="mb-2 small">
+            We can only access basic information for this profile. Some data may
+            not be available.
+          </p>
+        </div>
+
+        <div class="text-center">
+          <button
+            class="btn btn-light btn-sm download-btn"
+            data-type="profile_pic"
+            data-url="{{ profile|tojson|urlencode }}"
+          >
+            <i class="fas fa-download"></i> Download Profile Picture
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container mt-4">
+  <div class="row">
+    <div class="col-md-8 mx-auto">
+      <div class="card border-warning">
+        <div class="card-header bg-warning text-dark">
+          <h5 class="mb-0">
+            <i class="fas fa-exclamation-circle"></i> Limited Access
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="text-center py-4">
+            <i class="fas fa-user-shield fa-3x text-warning mb-3"></i>
+            <h4 class="text-warning">Limited Profile Access</h4>
+            <p class="text-muted">
+              We were able to retrieve basic profile information, but detailed
+              data like follower counts, posts, and analytics are not available
+              for this account.
+            </p>
+
+            <div class="row mt-4">
+              <div class="col-md-6">
+                <div class="card">
+                  <div class="card-body">
+                    <h6>What's Available</h6>
+                    <ul class="text-start small text-muted">
+                      <li>Username</li>
+                      <li>Profile Picture</li>
+                      <li>Basic Profile Info</li>
+                      <li>Verification Status</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="card">
+                  <div class="card-body">
+                    <h6>What's Not Available</h6>
+                    <ul class="text-start small text-muted">
+                      <li>Follower/Following Counts</li>
+                      <li>Posts & Stories</li>
+                      <li>Detailed Analytics</li>
+                      <li>Engagement Metrics</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-4">
+              <a href="{{ url_for('index') }}" class="btn btn-primary">
+                <i class="fas fa-search"></i> Search Another Profile
+              </a>
+              <a
+                href="https://www.instagram.com/{{ profile.username }}/"
+                target="_blank"
+                class="btn btn-outline-primary"
+              >
+                <i class="fab fa-instagram"></i> View on Instagram
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

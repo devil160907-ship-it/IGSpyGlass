@@ -1,0 +1,192 @@
+{% extends "base.html" %} {% block content %}
+<div class="profile-header">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-md-2 text-center">
+        <img
+          src="{{ profile.profile_pic_url }}"
+          class="rounded-circle border border-3 border-primary"
+          width="120"
+          height="120"
+          alt="{{ profile.username }}"
+          style="object-fit: cover"
+          onerror="this.onerror=null; this.src='https://api.dicebear.com/7.x/avataaars/svg?seed={{ profile.username }}'"
+        />
+      </div>
+      <div class="col-md-6">
+        <h2>@{{ profile.username }}</h2>
+        {% if profile.full_name %}
+        <p class="mb-1 text-light">{{ profile.full_name }}</p>
+        {% endif %} {% if profile.bio %}
+        <p class="mb-1 text-light">{{ profile.bio }}</p>
+        {% endif %} {% if profile.external_url %}
+        <p class="mb-1">
+          <a
+            href="{{ profile.external_url }}"
+            class="text-light"
+            target="_blank"
+          >
+            <i class="fas fa-link"></i> {{ profile.external_url }}
+          </a>
+        </p>
+        {% endif %}
+      </div>
+      <div class="col-md-4">
+        <div class="row text-center">
+          <div class="col-4">
+            <strong>{{ profile.posts_count|default(0) }}</strong>
+            <div>Posts</div>
+          </div>
+          <div class="col-4">
+            <strong>{{ profile.followers|default(0)|format_number }}</strong>
+            <div>Followers</div>
+          </div>
+          <div class="col-4">
+            <strong>{{ profile.following|default(0)|format_number }}</strong>
+            <div>Following</div>
+          </div>
+        </div>
+        <div class="mt-3 text-center">
+          {% if profile.is_verified %}
+          <span class="badge bg-success me-2">
+            <i class="fas fa-check-circle"></i> Verified
+          </span>
+          {% endif %}
+          <button
+            class="btn btn-light btn-sm download-btn"
+            data-type="profile_pic"
+            data-url="{{ profile|tojson|urlencode }}"
+          >
+            <i class="fas fa-download"></i> Profile Picture
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <div class="col-md-3">
+      <div class="card">
+        <div class="card-header">
+          <h6>Quick Actions</h6>
+        </div>
+        <div class="card-body">
+          <a
+            href="{{ url_for('view_stories', username=profile.username) }}"
+            class="btn btn-outline-primary w-100 mb-2"
+          >
+            <i class="fas fa-history"></i> View Stories
+          </a>
+          <a
+            href="{{ url_for('view_posts', username=profile.username) }}"
+            class="btn btn-outline-primary w-100 mb-2"
+          >
+            <i class="fas fa-images"></i> View All Posts
+          </a>
+          <a
+            href="{{ url_for('view_analytics', username=profile.username) }}"
+            class="btn btn-outline-info w-100"
+          >
+            <i class="fas fa-chart-bar"></i> Analytics
+          </a>
+        </div>
+      </div>
+
+      {% if analytics %}
+      <div class="card mt-3">
+        <div class="card-header">
+          <h6>Quick Stats</h6>
+        </div>
+        <div class="card-body">
+          <div class="mb-2">
+            <small>Engagement Rate</small>
+            <div class="fw-bold text-primary">
+              {{ analytics.engagement_rate }}%
+            </div>
+          </div>
+          <div class="mb-2">
+            <small>Avg Likes</small>
+            <div class="fw-bold">
+              {{ analytics.average_likes|format_number }}
+            </div>
+          </div>
+          <div class="mb-2">
+            <small>Avg Comments</small>
+            <div class="fw-bold">
+              {{ analytics.average_comments|format_number }}
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="col-md-9">
+      <div class="card">
+        <div
+          class="card-header d-flex justify-content-between align-items-center"
+        >
+          <h5 class="mb-0">Recent Posts</h5>
+          <span class="badge bg-primary">{{ posts|length }} posts</span>
+        </div>
+        <div class="card-body">
+          {% if posts %}
+          <div class="media-grid">
+            {% for post in posts %}
+            <div class="media-item">
+              {% if post.is_video %}
+              <video src="{{ post.video_url }}" preload="metadata"></video>
+              <div class="position-absolute top-0 end-0 m-2">
+                <i class="fas fa-play-circle text-white"></i>
+              </div>
+              {% else %}
+              <img src="{{ post.display_url }}" alt="Post {{ post.id }}" />
+              {% endif %}
+              <div class="media-overlay">
+                <div class="text-center">
+                  <div class="mb-2">
+                    <i class="fas fa-heart text-white me-2"></i>
+                    <span class="text-white"
+                      >{{ post.likes|format_number }}</span
+                    >
+                  </div>
+                  <div class="mb-2">
+                    <i class="fas fa-comment text-white me-2"></i>
+                    <span class="text-white"
+                      >{{ post.comments|format_number }}</span
+                    >
+                  </div>
+                  <button
+                    class="btn btn-light btn-sm download-btn"
+                    data-type="post"
+                    data-url="{{ post|tojson|urlencode }}"
+                    data-username="{{ profile.username }}"
+                  >
+                    <i class="fas fa-download"></i> Download
+                  </button>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <p class="text-muted text-center">No posts found</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %} {% block scripts %}
+<script>
+  // Register Jinja2 filters in JavaScript
+  function formatNumber(num) {
+    if (!num) return "0";
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + "M";
+    if (num >= 1000) return (num / 1000).toFixed(1) + "K";
+    return num.toString();
+  }
+</script>
+{% endblock %}

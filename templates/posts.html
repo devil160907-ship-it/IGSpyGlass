@@ -1,0 +1,246 @@
+{% extends "base.html" %} {% block title %}Posts - {{ profile.username }} |
+IGSpyGlass{% endblock %} {% block content %}
+<div class="profile-header">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-md-2 text-center">
+        <img
+          src="{{ profile.profile_pic_url }}"
+          class="rounded-circle"
+          width="80"
+          height="80"
+          alt="{{ profile.username }}"
+        />
+      </div>
+      <div class="col-md-10">
+        <h2>{{ profile.username }}'s Posts</h2>
+        <p class="mb-0">Viewing all public posts ({{ posts|length }} total)</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div
+          class="card-header d-flex justify-content-between align-items-center"
+        >
+          <h5 class="mb-0">
+            <i class="fas fa-images"></i> All Posts
+            <span class="badge bg-primary ms-2">{{ posts|length }}</span>
+          </h5>
+          <div>
+            {% if posts %}
+            <button class="btn btn-success btn-sm" onclick="downloadAllPosts()">
+              <i class="fas fa-download"></i> Download All
+            </button>
+            {% endif %}
+            <a
+              href="{{ url_for('view_profile', username=profile.username) }}"
+              class="btn btn-outline-secondary btn-sm"
+            >
+              <i class="fas fa-arrow-left"></i> Back to Profile
+            </a>
+          </div>
+        </div>
+        <div class="card-body">
+          {% if posts %}
+          <div class="media-grid">
+            {% for post in posts %}
+            <div class="media-item">
+              {% if post.is_video %}
+              <video
+                src="{{ post.video_url }}"
+                preload="metadata"
+                style="width: 100%; height: 250px; object-fit: cover"
+              ></video>
+              <div class="position-absolute top-0 end-0 m-2">
+                <span class="badge bg-danger">
+                  <i class="fas fa-play-circle"></i> Video
+                </span>
+              </div>
+              {% else %}
+              <img
+                src="{{ post.display_url }}"
+                style="width: 100%; height: 250px; object-fit: cover"
+                alt="Post {{ post.id }}"
+              />
+              {% endif %}
+
+              <div class="media-overlay">
+                <div class="text-center text-white">
+                  <div class="mb-2">
+                    <i class="fas fa-heart me-1"></i>
+                    {{ post.likes|default(0)|format_number }}
+                  </div>
+                  <div class="mb-2">
+                    <i class="fas fa-comment me-1"></i>
+                    {{ post.comments|default(0)|format_number }}
+                  </div>
+                  <div class="mb-3">
+                    <small>
+                      <i class="fas fa-calendar me-1"></i>
+                      {{ post.timestamp.strftime('%b %d, %Y') }}
+                    </small>
+                  </div>
+                  <div class="btn-group">
+                    <button
+                      class="btn btn-light btn-sm download-btn"
+                      data-type="post"
+                      data-url="{{ post|tojson|urlencode }}"
+                      data-username="{{ profile.username }}"
+                    >
+                      <i class="fas fa-download"></i> Download
+                    </button>
+                    <button
+                      class="btn btn-info btn-sm"
+                      onclick="showPostDetails({{ post|tojson }})"
+                    >
+                      <i class="fas fa-info"></i> Details
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="text-center py-5">
+            <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
+            <h4>No Posts Available</h4>
+            <p class="text-muted">
+              {% if profile.is_private %} This account is private. Posts from
+              private accounts cannot be viewed. {% else %} No posts found for
+              this user. {% endif %}
+            </p>
+            <a
+              href="{{ url_for('view_profile', username=profile.username) }}"
+              class="btn btn-primary"
+            >
+              <i class="fas fa-arrow-left"></i> Back to Profile
+            </a>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Post Details Modal -->
+<div class="modal fade" id="postDetailsModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Post Details</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body" id="postDetailsContent">
+        <!-- Content will be loaded dynamically -->
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %} {% block scripts %}
+<script>
+  function downloadAllPosts() {
+    const downloadButtons = document.querySelectorAll(".download-btn");
+    let downloaded = 0;
+    const total = downloadButtons.length;
+
+    showAlert(
+      `Starting download of ${total} posts... This may take a while.`,
+      "info"
+    );
+
+    downloadButtons.forEach((button, index) => {
+      setTimeout(() => {
+        button.click();
+        downloaded++;
+
+        if (downloaded === total) {
+          setTimeout(() => {
+            showAlert("All posts download completed!", "success");
+          }, 2000);
+        }
+      }, index * 2000); // 2 second delay between downloads
+    });
+  }
+
+  function showPostDetails(post) {
+    const modal = new bootstrap.Modal(
+      document.getElementById("postDetailsModal")
+    );
+    const content = document.getElementById("postDetailsContent");
+
+    const caption = post.caption || "No caption";
+    const truncatedCaption =
+      caption.length > 200 ? caption.substring(0, 200) + "..." : caption;
+
+    content.innerHTML = `
+        <div class="row">
+            <div class="col-md-6">
+                ${
+                  post.is_video
+                    ? `<video src="${post.video_url}" controls style="width: 100%; border-radius: 0.5rem;"></video>`
+                    : `<img src="${post.display_url}" style="width: 100%; border-radius: 0.5rem;" alt="Post">`
+                }
+            </div>
+            <div class="col-md-6">
+                <h6>Post Information</h6>
+                <table class="table table-sm">
+                    <tr>
+                        <td><strong>Type:</strong></td>
+                        <td>${post.is_video ? "Video" : "Image"}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Likes:</strong></td>
+                        <td>${
+                          post.likes ? post.likes.toLocaleString() : "0"
+                        }</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Comments:</strong></td>
+                        <td>${
+                          post.comments ? post.comments.toLocaleString() : "0"
+                        }</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Posted:</strong></td>
+                        <td>${new Date(post.timestamp).toLocaleString()}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Dimensions:</strong></td>
+                        <td>${
+                          post.dimensions
+                            ? `${post.dimensions.width} × ${post.dimensions.height}`
+                            : "N/A"
+                        }</td>
+                    </tr>
+                </table>
+                
+                <h6 class="mt-3">Caption</h6>
+                <p class="text-muted">${truncatedCaption}</p>
+                
+                <div class="text-center mt-3">
+                    <button class="btn btn-primary download-btn" 
+                            data-type="post" 
+                            data-url='${JSON.stringify(post)}'
+                            data-username="{{ profile.username }}">
+                        <i class="fas fa-download"></i> Download This Post
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    modal.show();
+  }
+</script>
+{% endblock %}

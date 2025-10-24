@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Media Preview - {{ profile.username }} | IGSpyGlass</title>
+    <style>
+      .media-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 15px;
+        margin: 20px 0;
+      }
+      .media-item {
+        border-radius: 10px;
+        overflow: hidden;
+        position: relative;
+        background: #f8f9fa;
+      }
+      .media-item img,
+      .media-item video {
+        width: 100%;
+        height: 200px;
+        object-fit: cover;
+      }
+      .media-type {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 5px 10px;
+        border-radius: 15px;
+        font-size: 12px;
+      }
+      .private-badge {
+        background: #ff4757;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Media Preview - @{{ profile.username }}</h1>
+
+    {% if profile.is_private %}
+    <div class="private-badge">Private Account - Limited Preview Available</div>
+    {% endif %}
+
+    <div class="navigation">
+      <a href="#posts">Posts</a>
+      <a href="#videos">Videos</a>
+      <a href="#stories">Stories</a>
+    </div>
+
+    <section id="posts">
+      <h2>Posts ({{ posts|length }})</h2>
+      <div class="media-grid">
+        {% for post in posts %}
+        <div class="media-item">
+          {% if post.is_video %}
+          <video controls preload="metadata">
+            <source src="{{ post.video_url }}" type="video/mp4" />
+          </video>
+          <div class="media-type">Video</div>
+          {% else %}
+          <img
+            src="{{ post.display_url or post.thumbnail_url }}"
+            alt="Post image"
+          />
+          <div class="media-type">Image</div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section id="videos">
+      <h2>Videos</h2>
+      <div class="media-grid">
+        {% for video in videos %}
+        <div class="media-item">
+          <video controls preload="metadata" style="width: 100%; height: 200px">
+            <source src="{{ video.video_url }}" type="video/mp4" />
+          </video>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section id="stories">
+      <h2>Stories ({{ stories|length }})</h2>
+      <div class="media-grid">
+        {% for story in stories %}
+        <div class="media-item">
+          {% if story.type == 'video' %}
+          <video controls preload="metadata">
+            <source src="{{ story.preview_url }}" type="video/mp4" />
+          </video>
+          {% else %}
+          <img src="{{ story.preview_url }}" alt="Story preview" />
+          {% endif %}
+          <div class="media-type">Story</div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+  </body>
+</html>

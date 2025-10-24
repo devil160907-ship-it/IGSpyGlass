@@ -1,0 +1,210 @@
+{% extends "base.html" %} {% block content %}
+<div class="hero-gradient text-white py-5 rounded-3 mb-5">
+  <div class="container text-center">
+    <h1 class="display-4 fw-bold mb-4">
+      <i class="fas fa-binoculars"></i> IGSpyGlass
+    </h1>
+    <p class="lead mb-4">
+      Advanced Instagram Content Viewer with Anonymous Browsing
+    </p>
+
+    <div class="row justify-content-center">
+      <div class="col-md-8">
+        <form action="{{ url_for('search_profiles') }}" method="get">
+          <div class="input-group input-group-lg shadow">
+            <input
+              type="text"
+              name="q"
+              class="form-control border-0"
+              placeholder="Enter Instagram username to search..."
+              value="{{ search_query or '' }}"
+              required
+            />
+            <button class="btn btn-light" type="submit">
+              <i class="fas fa-search text-primary"></i> Search
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if profiles %}
+<div class="card shadow-sm mb-5">
+  <div class="card-header">
+    <h4 class="mb-0 text-primary">
+      <i class="fas fa-users"></i> Search Results
+      <span class="badge bg-primary ms-2">{{ profiles|length }}</span>
+    </h4>
+  </div>
+  <div class="card-body">
+    <div class="row">
+      {% for profile in profiles %}
+      <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100 border-0 shadow-sm">
+          <div class="card-body text-center">
+            <div class="mb-3">
+              <img
+                src="{{ profile.profile_pic_url }}"
+                class="rounded-circle border border-3 border-primary"
+                width="80"
+                height="80"
+                alt="{{ profile.username }}"
+                style="object-fit: cover"
+                onerror="this.src='https://via.placeholder.com/80/007bff/ffffff?text=?'"
+              />
+            </div>
+            <h5 class="card-title text-primary mb-1">
+              @{{ profile.username }}
+            </h5>
+            {% if profile.full_name %}
+            <p class="text-muted mb-2">{{ profile.full_name }}</p>
+            {% endif %}
+
+            <div class="d-flex justify-content-center gap-2 mb-3">
+              {% if profile.is_verified %}
+              <span class="badge bg-success">
+                <i class="fas fa-check-circle"></i> Verified
+              </span>
+              {% endif %} {% if profile.is_private %}
+              <span class="badge bg-warning">
+                <i class="fas fa-lock"></i> Private
+              </span>
+              {% endif %}
+            </div>
+
+            {% if profile.follower_count %}
+            <div class="mb-3">
+              <small class="text-muted">
+                <i class="fas fa-users"></i>
+                {{ profile.follower_count|format_number }} followers
+              </small>
+            </div>
+            {% endif %}
+
+            <div class="d-grid">
+              <a
+                href="{{ url_for('view_profile', username=profile.username) }}"
+                class="btn btn-primary"
+              >
+                <i class="fas fa-eye"></i> View Profile
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    {% if profiles|length == 0 %}
+    <div class="text-center py-4">
+      <i class="fas fa-search fa-3x text-muted mb-3"></i>
+      <h5 class="text-muted">No profiles found</h5>
+      <p class="text-muted">Try searching with different keywords</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% elif search_query %}
+<div class="card border-warning shadow-sm mb-5">
+  <div class="card-body text-center py-5">
+    <i class="fas fa-search fa-3x text-warning mb-3"></i>
+    <h4 class="text-warning">No Profiles Found</h4>
+    <p class="text-muted">No results found for "{{ search_query }}"</p>
+    <p class="text-muted small mb-3">
+      Try searching with different keywords or check the spelling.
+    </p>
+    <a href="{{ url_for('index') }}" class="btn btn-primary">
+      <i class="fas fa-arrow-left"></i> Try Another Search
+    </a>
+  </div>
+</div>
+{% endif %}
+
+<!-- Features Section -->
+<div class="row mb-5">
+  <div class="col-12 text-center mb-4">
+    <h3 class="text-primary">Why Choose IGSpyGlass?</h3>
+    <p class="text-muted">Powerful features for Instagram content viewing</p>
+  </div>
+
+  <div class="col-md-4 mb-4">
+    <div class="card h-100 border-0 shadow-sm">
+      <div class="card-body text-center">
+        <div class="feature-icon">
+          <i class="fas fa-user-secret"></i>
+        </div>
+        <h5 class="text-primary">Anonymous Viewing</h5>
+        <p class="text-muted">
+          View profiles, stories, and posts without being detected or leaving
+          traces.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4 mb-4">
+    <div class="card h-100 border-0 shadow-sm">
+      <div class="card-body text-center">
+        <div class="feature-icon">
+          <i class="fas fa-download"></i>
+        </div>
+        <h5 class="text-primary">Media Download</h5>
+        <p class="text-muted">
+          Download stories, posts, reels, and profile pictures in high quality.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4 mb-4">
+    <div class="card h-100 border-0 shadow-sm">
+      <div class="card-body text-center">
+        <div class="feature-icon">
+          <i class="fas fa-chart-bar"></i>
+        </div>
+        <h5 class="text-primary">Advanced Analytics</h5>
+        <p class="text-muted">
+          Get detailed insights and engagement metrics for any public profile.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %} {% block scripts %}
+<script>
+  // Add real-time search functionality
+  document.addEventListener("DOMContentLoaded", function () {
+    const searchInput = document.querySelector('input[name="q"]');
+    const searchForm = document.querySelector("form");
+
+    // Add input event listener for real-time feedback
+    if (searchInput) {
+      searchInput.addEventListener("input", function () {
+        if (this.value.length > 2) {
+          // Could add real-time search here in future
+        }
+      });
+    }
+
+    // Add form submission loading state
+    if (searchForm) {
+      searchForm.addEventListener("submit", function () {
+        const submitBtn = this.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML =
+          '<i class="fas fa-spinner fa-spin"></i> Searching...';
+        submitBtn.disabled = true;
+
+        // Re-enable after 5 seconds in case of error
+        setTimeout(() => {
+          submitBtn.innerHTML = originalText;
+          submitBtn.disabled = false;
+        }, 5000);
+      });
+    }
+  });
+</script>
+{% endblock %}
