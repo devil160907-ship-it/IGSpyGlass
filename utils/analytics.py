@@ -1,9 +1,9 @@
 from datetime import datetime, timedelta
-from models.models import AnalyticsManager
 
 class AnalyticsService:
     def __init__(self):
-        self.analytics_manager = AnalyticsManager()
+        # No database dependency
+        pass
     
     def analyze_profile(self, profile_data, posts):
         """Analyze profile engagement and performance"""
@@ -41,9 +41,7 @@ class AnalyticsService:
                 'following_count': profile_data.get('following', 0)
             }
             
-            # Save analytics
-            self.analytics_manager.save_analytics(profile_data['username'], analytics_data)
-            
+            # No database saving
             return analytics_data
             
         except Exception as e:
@@ -51,5 +49,5 @@ class AnalyticsService:
             return {}
     
     def get_profile_analytics(self, username):
-        """Get saved analytics for a profile"""
-        return self.analytics_manager.get_profile_analytics(username)
+        """Get saved analytics for a profile - now returns empty"""
+        return {}
